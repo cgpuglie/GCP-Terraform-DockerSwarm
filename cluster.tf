@@ -1,6 +1,6 @@
 provider "google" {
   credentials = "${ file("account.json") }",
-  project     = "bionic-obelisk-162521",
+  project     = "${var.project_id}",
   region      = "us-west1"
 }
 

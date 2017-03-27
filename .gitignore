@@ -1,2 +1,3 @@
 account.json
 *.tfstate*
+config.tf
