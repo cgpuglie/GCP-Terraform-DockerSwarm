@@ -41,8 +41,15 @@ resource "google_compute_instance" "manager1" {
     "manager"
   ],
 
-  provisioner "local-exec" {
-    command = "./scripts/swarm.sh -m ${google_compute_instance.manager1.network_interface.0.access_config.0.assigned_nat_ip} -w ${google_compute_instance.worker1.network_interface.0.access_config.0.assigned_nat_ip} -u ${var.remote_user}"
+  connection {
+    type = "ssh",
+    user = "${var.remote_user}",
+    private_key = "${file("keys/id_rsa")}"
+  },
+  provisioner "remote-exec" {
+    inline = [
+      "sudo docker swarm init"
+    ]
   }
 }
 
@@ -63,5 +70,20 @@ resource "google_compute_instance" "worker1" {
 
   tags = [
     "worker"
-  ]
+  ],
+
+  connection {
+    type = "ssh",
+    user = "${var.remote_user}",
+    private_key = "${file("keys/id_rsa")}"
+  },
+  provisioner "remote-exec" {
+    inline = [
+      <<-EOF
+        docker swarm join  \
+        ${google_compute_instance.manager1.network_interface.0.access_config.0.assigned_nat_ip}:2377 \
+        --token $(docker -H ${google_compute_instance.manager1.network_interface.0.access_config.0.assigned_nat_ip} swarm join-token -q worker)
+        EOF
+    ]
+  }
 }
