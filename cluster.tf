@@ -11,7 +11,7 @@ resource "google_compute_firewall" "swarm" {
 
   allow {
     protocol = "tcp",
-    ports = ["2377", "7946"]
+    ports = ["2375", "2377", "7946"]
   }
 
   allow {
@@ -46,8 +46,13 @@ resource "google_compute_instance" "manager1" {
     user = "${var.remote_user}",
     private_key = "${file("keys/id_rsa")}"
   },
+  provisioner "file" {
+    source = "docker.options",
+    destination = "/tmp/docker"
+  },
   provisioner "remote-exec" {
     inline = [
+      "sudo mv /tmp/docker /etc/default/docker",
       "sudo docker swarm init"
     ]
   }
@@ -80,9 +85,9 @@ resource "google_compute_instance" "worker1" {
   provisioner "remote-exec" {
     inline = [
       <<-EOF
-        docker swarm join  \
+        sudo docker swarm join  \
         ${google_compute_instance.manager1.network_interface.0.access_config.0.assigned_nat_ip}:2377 \
-        --token $(docker -H ${google_compute_instance.manager1.network_interface.0.access_config.0.assigned_nat_ip} swarm join-token -q worker)
+        --token $(sudo docker -H ${google_compute_instance.manager1.network_interface.0.access_config.0.assigned_nat_ip} swarm join-token -q worker)
         EOF
     ]
   }
