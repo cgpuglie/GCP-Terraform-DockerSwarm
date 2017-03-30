@@ -23,9 +23,9 @@ resource "google_compute_firewall" "swarm" {
   target_tags = ["manager", "worker"]
 }
 
-resource "google_compute_instance" "manager1" {
-  name        = "manager1"
-  description = "Docker Swarm manager"
+resource "google_compute_instance" "swarm-mom" {
+  name        = "swarm-mom"
+  description = "Initial Docker Swarm Manager - All others will join here"
 
   machine_type = "f1-micro"
   zone         = "us-west1-a"
@@ -56,10 +56,37 @@ resource "google_compute_instance" "manager1" {
   }
 }
 
-resource "google_compute_instance" "worker1" {
-  name        = "worker1"
-  description = "Docker Swarm worker"
+resource "google_compute_instance" "swarm-manager" {
+  name        = "swarm-manager-${count.index}"
+  description = "Docker Swarm Manager Node - Joins MoM"
 
+  count        = "${var.swarm_manager_count}"
+  machine_type = "f1-micro"
+  zone         = "us-west1-a"
+
+  disk = {
+    image = "coreos-stable-1298-6-0-v20170315"
+  }
+
+  network_interface = {
+    network       = "default"
+    access_config = {}
+  }
+
+  tags = [
+    "manager",
+  ]
+
+  provisioner "local-exec" {
+    command = "sleep 60; ssh -o StrictHostKeyChecking=no ${var.remote_user}@${self.network_interface.0.access_config.0.assigned_nat_ip} \"sudo docker swarm join --token $(ssh -o StrictHostKeyChecking=no ${var.remote_user}@${google_compute_instance.swarm-mom.network_interface.0.access_config.0.assigned_nat_ip} 'sudo docker swarm join-token -q manager') ${google_compute_instance.swarm-mom.network_interface.0.address}:2377;\""
+  }
+}
+
+resource "google_compute_instance" "swarm-worker" {
+  name        = "swarm-worker-${count.index}"
+  description = "Docker Swarm Worker Node - Joins MoM"
+
+  count        = "${var.swarm_worker_count}"
   machine_type = "f1-micro"
   zone         = "us-west1-a"
 
@@ -77,6 +104,6 @@ resource "google_compute_instance" "worker1" {
   ]
 
   provisioner "local-exec" {
-    command = "sleep 60; ssh -o StrictHostKeyChecking=no ${var.remote_user}@${google_compute_instance.worker1.network_interface.0.access_config.0.assigned_nat_ip} \"sudo docker swarm join --token $(ssh -o StrictHostKeyChecking=no ${var.remote_user}@${google_compute_instance.manager1.network_interface.0.access_config.0.assigned_nat_ip} 'sudo docker swarm join-token -q worker') ${google_compute_instance.manager1.network_interface.0.address}:2377;\""
+    command = "sleep 60; ssh -o StrictHostKeyChecking=no ${var.remote_user}@${self.network_interface.0.access_config.0.assigned_nat_ip} \"sudo docker swarm join --token $(ssh -o StrictHostKeyChecking=no ${var.remote_user}@${google_compute_instance.swarm-mom.network_interface.0.access_config.0.assigned_nat_ip} 'sudo docker swarm join-token -q worker') ${google_compute_instance.swarm-mom.network_interface.0.address}:2377;\""
   }
 }
