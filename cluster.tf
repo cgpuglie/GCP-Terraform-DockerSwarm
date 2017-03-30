@@ -11,7 +11,7 @@ resource "google_compute_firewall" "swarm" {
 
   allow {
     protocol = "tcp"
-    ports    = ["2375", "2377", "7946"]
+    ports    = ["2377", "7946"]
   }
 
   allow {
@@ -20,6 +20,7 @@ resource "google_compute_firewall" "swarm" {
   }
 
   source_tags = ["manager", "worker"]
+  target_tags = ["manager", "worker"]
 }
 
 resource "google_compute_instance" "manager1" {
@@ -76,8 +77,6 @@ resource "google_compute_instance" "worker1" {
   ]
 
   provisioner "local-exec" {
-    command = <<-EOF
-      sleep 60; ssh -o StrictHostKeyChecking=no ${var.remote_user}@${google_compute_instance.worker1.network_interface.0.access_config.0.assigned_nat_ip} "sudo docker swarm join --token $(ssh -o StrictHostKeyChecking=no ${var.remote_user}@${google_compute_instance.manager1.network_interface.0.access_config.0.assigned_nat_ip} 'sudo docker swarm join-token -q worker') ${google_compute_instance.manager1.network_interface.0.access_config.0.assigned_nat_ip}:2377;";
-      EOF
+    command = "sleep 60; ssh -o StrictHostKeyChecking=no ${var.remote_user}@${google_compute_instance.worker1.network_interface.0.access_config.0.assigned_nat_ip} \"sudo docker swarm join --token $(ssh -o StrictHostKeyChecking=no ${var.remote_user}@${google_compute_instance.manager1.network_interface.0.access_config.0.assigned_nat_ip} 'sudo docker swarm join-token -q worker') ${google_compute_instance.manager1.network_interface.0.address}:2377;\""
   }
 }
